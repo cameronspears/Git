@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Function to get the latest Git release and 64-bit download URL from GitHub API
 def get_latest_git_release():
     api_url = "https://api.github.com/repos/git-for-windows/git/releases/latest"
     response = requests.get(api_url)
@@ -12,6 +13,7 @@ def get_latest_git_release():
     data = response.json()
 
     asset_64bit = None
+    # Find the 64-bit installer asset in the release assets
     for asset in data["assets"]:
         if "64-bit.exe" in asset["name"]:
             asset_64bit = asset
@@ -22,6 +24,7 @@ def get_latest_git_release():
 
     return data["tag_name"], asset_64bit["browser_download_url"]
 
+# Function to download the Git installer to a specified save_path
 def download_git_installer(url, save_path):
     response = requests.get(url, stream=True)
     response.raise_for_status()
@@ -30,6 +33,7 @@ def download_git_installer(url, save_path):
         for chunk in response.iter_content(chunk_size=8192):
             installer_file.write(chunk)
 
+# Function to install Git using the downloaded installer
 def install_git(installer_path):
     installation_args = [
         installer_path,
@@ -46,6 +50,7 @@ def install_git(installer_path):
     result = subprocess.run(installation_args, check=True)
     return result.returncode == 0
 
+# Function to check if Git is installed
 def is_git_installed():
     try:
         subprocess.run(["git", "--version"], check=True)
@@ -53,6 +58,7 @@ def is_git_installed():
     except FileNotFoundError:
         return False
 
+# Function to get the installed Git version
 def get_git_version():
     result = subprocess.run(["git", "--version"], capture_output=True, text=True, check=True)
     return result.stdout.strip()
