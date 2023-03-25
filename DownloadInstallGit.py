@@ -1,8 +1,26 @@
 import os
+import platform
 import requests
 import subprocess
 import sys
 from pathlib import Path
+
+def get_latest_git_release():
+    api_url = "https://api.github.com/repos/git-for-windows/git/releases/latest"
+    response = requests.get(api_url)
+    response.raise_for_status()
+    data = response.json()
+
+    asset_64bit = None
+    for asset in data["assets"]:
+        if "64-bit.exe" in asset["name"]:
+            asset_64bit = asset
+            break
+
+    if asset_64bit is None:
+        raise Exception("64-bit Git installer not found in release assets")
+
+    return data["tag_name"], asset_64bit["browser_download_url"]
 
 def download_git_installer(url, save_path):
     response = requests.get(url, stream=True)
@@ -15,11 +33,10 @@ def download_git_installer(url, save_path):
 def install_git(installer_path):
     installation_args = [
         installer_path,
-        "/VERYSILENT",
+        "/SILENT",
         "/NORESTART",
         "/NOCANCEL",
         "/SP-",
-        "/LOG",
         "/SUPPRESSMSGBOXES",
         "/CLOSEAPPLICATIONS",
         "/RESTARTAPPLICATIONS",
@@ -29,13 +46,38 @@ def install_git(installer_path):
     result = subprocess.run(installation_args, check=True)
     return result.returncode == 0
 
+def is_git_installed():
+    try:
+        subprocess.run(["git", "--version"], check=True)
+        return True
+    except FileNotFoundError:
+        return False
+
+def get_git_version():
+    result = subprocess.run(["git", "--version"], capture_output=True, text=True, check=True)
+    return result.stdout.strip()
+
 if __name__ == "__main__":
-    url = "https://github.com/git-for-windows/git/releases/download/v2.35.1.windows.2/Git-2.35.1.2-64-bit.exe"
+    if platform.system() != "Windows":
+        print("This script is designed for Windows systems.")
+        sys.exit(1)
+
+    if is_git_installed():
+        current_version = get_git_version()
+        print(f"Git is already installed: {current_version}")
+
+        latest_version, url = get_latest_git_release()
+        update_choice = input(f"Do you want to update Git to the latest version ({latest_version})? (y/n): ")
+        if update_choice.lower() != "y":
+            sys.exit(0)
+    else:
+        latest_version, url = get_latest_git_release()
+
     installer_name = "GitInstaller.exe"
     installer_path = os.path.join(os.getcwd(), installer_name)
 
     try:
-        print("Downloading Git installer...")
+        print(f"Downloading Git {latest_version} installer...")
         download_git_installer(url, installer_path)
         print("Git installer downloaded.")
 
